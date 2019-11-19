@@ -2,7 +2,7 @@
 This project is the implementation of the shopping cart task. 
 
 # Design Features
-In this project, I have used basic OOP principles and Dependency Injection for Loose Coupling.
+In this project, I have used basic OOP principles and Dependency Injection for Loose Coupling and better unit testing.
 Also I have implemented the Factory Pattern for Open/Closed principle.
 
 # Unit Test Frameworks
