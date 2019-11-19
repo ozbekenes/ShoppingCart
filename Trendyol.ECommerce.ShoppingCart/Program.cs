@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Trendyol.ECommerce.ShoppingCart.Logic;
+using Trendyol.ECommerce.ShoppingCart.Logic.Interfaces;
 using Trendyol.ECommerce.ShoppingCart.Logic.Models;
 using static Trendyol.ECommerce.ShoppingCart.Logic.Models.Enums;
 
@@ -29,7 +30,7 @@ namespace Trendyol.ECommerce.ShoppingCart
             var costPerDelivery = 2.0;
             var costPerProduct = 5.0;
             var deliveryCostCalculator = new DeliveryCostCalculator(costPerDelivery, costPerProduct);
-            var cart = new Logic.Models.ShoppingCart(deliveryCostCalculator);
+            IShoppingCart cart = new Logic.Models.ShoppingCart(deliveryCostCalculator);
             cart.AddItem(iPhone, 1);
             cart.AddItem(iPhone, 1);
             cart.AddItem(samsung, 4);

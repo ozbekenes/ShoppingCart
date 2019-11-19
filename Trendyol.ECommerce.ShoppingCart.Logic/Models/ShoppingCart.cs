@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using Trendyol.ECommerce.ShoppingCart.Logic.Interfaces;
 
 namespace Trendyol.ECommerce.ShoppingCart.Logic.Models
 {
-    public class ShoppingCart
+    public class ShoppingCart : IShoppingCart
     {
         const int lengthOfSpace = 20;
         public List<ShoppingCartDetail> ShoppingCartDetail { get; set; }
@@ -263,19 +263,20 @@ namespace Trendyol.ECommerce.ShoppingCart.Logic.Models
         /// <summary>
         /// Check if given category is sub category.
         /// </summary>
-        /// <param name="parent"></param>
-        /// <param name="sub"></param>
+        /// <param name="parentCategory"></param>
+        /// <param name="subCategory"></param>
         /// <returns></returns>
-        private bool IsSubCategory(Category parent, Category sub)
+        private bool IsSubCategory(Category parentCategory, Category subCategory)
         {
-            Category temp = sub.ParentCategory;
-            while (temp != null)
+            var tempParentCategory = subCategory.ParentCategory;
+            
+            while (tempParentCategory != null)
             {
-                if (temp == parent)
+                if (tempParentCategory == parentCategory)
                 {
                     return true;
                 }
-                temp = temp.ParentCategory;
+                tempParentCategory = tempParentCategory.ParentCategory;
             }
             return false;
         }

@@ -10,11 +10,14 @@ namespace Trendyol.ECommerce.ShoppingCart.Test
     [TestClass]
     public class ShoppingCartUnitTest
     {
+        DeliveryCostCalculator deliveryCostCalculator;
         Logic.Models.ShoppingCart shoppingCart;
-        readonly DeliveryCostCalculator deliveryCostCalculator = Substitute.For<DeliveryCostCalculator>(2.0, 5.0, 2.99);
+        readonly DeliveryCostCalculator mockDeliveryCostCalculator = Substitute.For<DeliveryCostCalculator>(2.0, 5.0, 2.99);
+        readonly Logic.Interfaces.IShoppingCart mockShoppingCart = Substitute.For<Logic.Interfaces.IShoppingCart>();
+
         public ShoppingCartUnitTest()
         {
-            shoppingCart = new Logic.Models.ShoppingCart(deliveryCostCalculator);
+            shoppingCart = new Logic.Models.ShoppingCart(mockDeliveryCostCalculator);
         }
 
         #region tests addding product to shopping cart
@@ -58,7 +61,7 @@ namespace Trendyol.ECommerce.ShoppingCart.Test
         /// Method tests adding product to shopping cart with less than or equal to zero quantity.
         /// </summary>
         [TestMethod]
-        public void AddProduct_WithLessThanOrEqualToZeroQuantity_ShouldBeAdded()
+        public void AddProduct_WithLessThanOrEqualToZeroQuantity_ShouldNotBeAdded()
         {
             //Arrange
             var phone = new Category("Phone");
@@ -112,6 +115,66 @@ namespace Trendyol.ECommerce.ShoppingCart.Test
             //Assert
             sw.ElapsedMilliseconds.Should().BeLessOrEqualTo(100, "No response was received in the requested time." + sw.ElapsedMilliseconds);
             shoppingCart.ShoppingCartDetail.Sum(p => p.Quantity).Should().Be(3);
+        }
+
+        #endregion
+
+        #region tests calculating total amount before applying any discount
+
+        /// <summary>
+        /// tests calculating total amount before applying discounts without any product.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountBeforeApplyingDiscounts_WithNullProduct_ReturnZero()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            Product iPhone = null;
+
+            //Act
+            shoppingCart.AddItem(iPhone, 1);
+
+            //Assert
+            shoppingCart.GetTotalAmount().Should().Be(0);
+        }
+
+        /// <summary>
+        /// tests calculating total amount before applying discounts with one product.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountBeforeApplyingDiscounts_WithOneProduct_ReturnOneHundred()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+
+            //Act
+            shoppingCart.AddItem(iPhone, 2);
+
+            //Assert
+            shoppingCart.GetTotalAmount().Should().Be(200);
+        }
+
+        /// <summary>
+        /// tests calculating total amount before applying discounts with multiple product.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountBeforeApplyingDiscounts_WithMultipleProduct_ReturnEightHundred()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var samsung = new Product("Samsung Galaxy S10", 150, smartPhone);
+
+            //Act
+            shoppingCart.AddItem(iPhone, 2);
+            shoppingCart.AddItem(samsung, 4);
+
+            //Assert
+            shoppingCart.GetTotalAmount().Should().Be(800);
         }
 
         #endregion
@@ -893,7 +956,355 @@ namespace Trendyol.ECommerce.ShoppingCart.Test
 
         #region tests calculating total amount after total (campaign&coupon) discounts.
 
+        /// <summary>
+        /// Calculate total amount after (campaign&coupon) discount with no product in the shopping cart.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmount_WithNoProductInShoppingCart_ReturnsZero()
+        {
+            //Arrange
+
+            //Act
+
+            //Assert
+            shoppingCart.GetTotalAmountAfterDiscounts().Should().Be(0);
+        }
+
+        /// <summary>
+        /// Calculate total amount after (campaign&coupon) discount without any discount for shopping cart.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountAfterDiscounts_WithoutAnyDiscount_ReturnsFiveHundred()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var samsung = new Product("Samsung Galaxy S10", 150, smartPhone);
+            //Act
+            shoppingCart.AddItem(iPhone, 2);
+            shoppingCart.AddItem(samsung, 2);
+            //Assert
+            shoppingCart.GetTotalAmountAfterDiscounts().Should().Be(500);
+        }
+
+        /// <summary>
+        /// Calculate total amount after discount with one campaign with rate discount type which less than minimum amount and coupon with rate discount type which less than minimum amount.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountAfterDiscounts_WithOneCampaignRateDiscountTypeLessThanMinimumAmountAndCouponRateDiscountTypeLessThanMinimumAmount_ReturnsOneHundred()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var campaign = new Campaign(phone, 20, 2, Enums.DiscountType.Rate);
+            var coupon = new Coupon(500, 10, Enums.DiscountType.Rate);
+            //Act
+            shoppingCart.AddItem(iPhone, 1);
+            shoppingCart.ApplyDiscounts(campaign);
+            shoppingCart.ApplyCoupon(coupon);
+            //Assert
+            shoppingCart.GetTotalAmountAfterDiscounts().Should().Be(100);
+        }
+
+        /// <summary>
+        /// Calculate total amount after discount with one campaign with rate discount type which greater than minimum amount and coupon with rate discount type which less than minimum amount.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountAfterDiscounts_WithOneCampaignRateDiscountTypeGreaterThanMinimumAmountAndCouponRateDiscountTypeLessThanMinimumAmount_ReturnTwoHundredForty()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var campaign = new Campaign(phone, 20, 2, Enums.DiscountType.Rate);
+            var coupon = new Coupon(500, 10, Enums.DiscountType.Rate);
+            //Act
+            shoppingCart.AddItem(iPhone, 3);
+            shoppingCart.ApplyDiscounts(campaign);
+            shoppingCart.ApplyCoupon(coupon);
+            //Assert
+            shoppingCart.GetTotalAmountAfterDiscounts().Should().Be(240);
+        }
+
+        /// <summary>
+        /// Calculate total amount after discount with one campaign with rate discount type which less than minimum amount and coupon with rate discount type which greater than minimum amount.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountAfterDiscounts_WithOneCampaignRateDiscountTypeLessThanMinimumAmountAndCouponRateDiscountTypeGreaterThanMinimumAmount_ReturnOneHunderedEighty()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var campaign = new Campaign(phone, 20, 3, Enums.DiscountType.Rate);
+            var coupon = new Coupon(100, 10, Enums.DiscountType.Rate);
+            //Act
+            shoppingCart.AddItem(iPhone, 2);
+            shoppingCart.ApplyDiscounts(campaign);
+            shoppingCart.ApplyCoupon(coupon);
+            //Assert
+            shoppingCart.GetTotalAmountAfterDiscounts().Should().Be(180);
+        }
+
+
+        /// <summary>
+        /// Calculate total amount after discount with one campaign with rate discount type which greater than minimum amount and coupon with rate discount type which greater than minimum amount.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountAfterDiscounts_WithOneCampaignRateDiscountTypeGreaterThanMinimumAmountAndCouponRateDiscountTypeGreaterThanMinimumAmount_ReturnTwoHundredTen()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var campaign = new Campaign(phone, 20, 3, Enums.DiscountType.Rate);
+            var coupon = new Coupon(100, 10, Enums.DiscountType.Rate);
+            //Act
+            shoppingCart.AddItem(iPhone, 3);
+            shoppingCart.ApplyDiscounts(campaign);
+            shoppingCart.ApplyCoupon(coupon);
+            //Assert
+            shoppingCart.GetTotalAmountAfterDiscounts().Should().Be(210);
+        }
+
+        /// <summary>
+        /// Calculate total discount with one campaign with amount discount type which less than minimum amount and coupon with rate discount type which less than minimum amount.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountAfterDiscounts_WithOneCampaignAmountDiscountTypeLessThanMinimumAmountAndCouponAmountDiscountTypeLessThanMinimumAmount_ReturnOneHundred()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var campaign = new Campaign(phone, 20, 2, Enums.DiscountType.Amount);
+            var coupon = new Coupon(500, 10, Enums.DiscountType.Amount);
+            //Act
+            shoppingCart.AddItem(iPhone, 1);
+            shoppingCart.ApplyDiscounts(campaign);
+            shoppingCart.ApplyCoupon(coupon);
+            //Assert
+            shoppingCart.GetTotalAmountAfterDiscounts().Should().Be(100);
+        }
+
+        /// <summary>
+        /// Calculate total amount after discount with one campaign with amount discount type which greater than minimum amount and coupon with rate discount type which less than minimum amount.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountAfterDiscounts_WithOneCampaignAmountDiscountTypeGreaterThanMinimumAmountAndCouponAmountDiscountTypeLessThanMinimumAmount_ReturnTwoHundredEighty()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var campaign = new Campaign(phone, 20, 2, Enums.DiscountType.Amount);
+            var coupon = new Coupon(500, 10, Enums.DiscountType.Amount);
+            //Act
+            shoppingCart.AddItem(iPhone, 3);
+            shoppingCart.ApplyDiscounts(campaign);
+            shoppingCart.ApplyCoupon(coupon);
+            //Assert
+            shoppingCart.GetTotalAmountAfterDiscounts().Should().Be(280);
+        }
+
+        /// <summary>
+        /// Calculate total amount after discount with one campaign with amount discount type which less than minimum amount and coupon with amount discount type which greater than minimum amount.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountAfterDiscounts_WithOneCampaignAmountDiscountTypeLessThanMinimumAmountAndCouponAmountDiscountTypeGreaterThanMinimumAmount_ReturnOneHundredNinety()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var campaign = new Campaign(phone, 20, 3, Enums.DiscountType.Amount);
+            var coupon = new Coupon(100, 10, Enums.DiscountType.Amount);
+            //Act
+            shoppingCart.AddItem(iPhone, 2);
+            shoppingCart.ApplyDiscounts(campaign);
+            shoppingCart.ApplyCoupon(coupon);
+            //Assert
+            shoppingCart.GetTotalAmountAfterDiscounts().Should().Be(190);
+        }
+
+        /// <summary>
+        /// Calculate total amount after discount with one campaign with amount discount type which greater than minimum amount and coupon with amount discount type which greater than minimum amount.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountAfterDiscounts_WithOneCampaignAmountDiscountTypeGreaterThanMinimumAmountAndCouponAmountDiscountTypeGreaterThanMinimumAmount_ReturnTwoHundredSeventy()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var campaign = new Campaign(phone, 20, 3, Enums.DiscountType.Amount);
+            var coupon = new Coupon(100, 10, Enums.DiscountType.Amount);
+            //Act
+            shoppingCart.AddItem(iPhone, 3);
+            shoppingCart.ApplyDiscounts(campaign);
+            shoppingCart.ApplyCoupon(coupon);
+            //Assert
+            shoppingCart.GetTotalAmountAfterDiscounts().Should().Be(270);
+        }
+
+        /// <summary>
+        /// Calculate total amount after discount with one campaign with rate discount type which greater than minimum amount and coupon with amount discount type which greater than minimum amount.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountAfterDiscounts_WithOneCampaignAmountRateTypeGreaterThanMinimumAmountAndCouponAmountDiscountTypeGreaterThanMinimumAmount_ReturnTwoHundredThirty()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var campaign = new Campaign(phone, 20, 2, Enums.DiscountType.Rate);
+            var coupon = new Coupon(100, 10, Enums.DiscountType.Amount);
+            //Act
+            shoppingCart.AddItem(iPhone, 3);
+            shoppingCart.ApplyDiscounts(campaign);
+            shoppingCart.ApplyCoupon(coupon);
+            //Assert
+            shoppingCart.GetTotalAmountAfterDiscounts().Should().Be(230);
+        }
+
+        /// <summary>
+        /// Calculate total amount after discount with one campaign with amount discount type which greater than minimum amount and coupon with amount discount type which greater than minimum amount.
+        /// </summary>
+        [TestMethod]
+        public void CalculateTotalAmountAfterDiscounts_WithOneCampaignAmountAmountTypeGreaterThanMinimumAmountAndCouponRateDiscountTypeGreaterThanMinimumAmount_ReturnTwoHundredFifty()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var campaign = new Campaign(phone, 20, 2, Enums.DiscountType.Amount);
+            var coupon = new Coupon(100, 10, Enums.DiscountType.Rate);
+            //Act
+            shoppingCart.AddItem(iPhone, 3);
+            shoppingCart.ApplyDiscounts(campaign);
+            shoppingCart.ApplyCoupon(coupon);
+            //Assert
+            shoppingCart.GetTotalAmountAfterDiscounts().Should().Be(250);
+        }
+
         #endregion
 
+        #region tests calculating number of products and number of deliveries
+
+        /// <summary>
+        /// Calculate number of products with null shopping cart.
+        /// </summary>
+        [TestMethod]
+        public void CalculateNumberOfProducts_WithNullShoppingCart_ShouldReturnZero()
+        {
+            //Arrange
+
+            //Act
+
+            //Assert
+            shoppingCart.GetNumberOfProducts().Should().Be(0);
+        }
+
+        /// <summary>
+        /// Calculate number of products with multiple products in shopping cart.
+        /// </summary>
+        [TestMethod]
+        public void CalculateNumberOfProducts_WithMultipleProductsInShoppingCart_ShouldReturnFour()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var computer = new Category("Computer");
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var samsung = new Product("Samsung Galaxy S10", 150, smartPhone);
+            var lg = new Product("LG-5", 200, smartPhone);
+            var thinkPad = new Product("ThinkPad", 200, computer);
+
+            //Act
+            shoppingCart.AddItem(iPhone, 1);
+            shoppingCart.AddItem(samsung, 4);
+            shoppingCart.AddItem(lg, 1);
+            shoppingCart.AddItem(thinkPad, 2);
+            //Assert
+            shoppingCart.GetNumberOfProducts().Should().Be(4);
+        }
+
+        /// <summary>
+        /// Calculate number of deliveries with null shopping cart.
+        /// </summary>
+        [TestMethod]
+        public void CalculateNumberOfDeliveries_WithNullShoppingCart_ShouldReturnZero()
+        {
+            //Arrange
+
+            //Act
+
+            //Assert
+            shoppingCart.GetNumberOfDeliveries().Should().Be(0);
+        }
+
+        /// <summary>
+        /// Calculate number of products with two categories in shopping cart.
+        /// </summary>
+        [TestMethod]
+        public void CalculateNumberOfDeliveries_WithTwoDifferentCategoryInShoppingCart_ShouldReturnTwo()
+        {
+            //Arrange
+            var phone = new Category("Phone");
+            var smartPhone = new Category("SmartPhone", phone);
+            var computer = new Category("Computer");
+            var iPhone = new Product("IPhone", 100, smartPhone);
+            var samsung = new Product("Samsung Galaxy S10", 150, smartPhone);
+            var lg = new Product("LG-5", 200, smartPhone);
+            var thinkPad = new Product("ThinkPad", 200, computer);
+
+            //Act
+            shoppingCart.AddItem(iPhone, 1);
+            shoppingCart.AddItem(samsung, 4);
+            shoppingCart.AddItem(lg, 1);
+            shoppingCart.AddItem(thinkPad, 2);
+            //Assert
+            shoppingCart.GetNumberOfDeliveries().Should().Be(2);
+        }
+
+        #endregion
+
+        #region tests calculating the delivery cost
+
+        /// <summary>
+        /// Calculate delivery cost for null shopping cart
+        /// </summary>
+        [TestMethod]
+        public void CalculateDeliveryCost_WithNullCart_ReturnZero()
+        {
+            //Arrange
+            deliveryCostCalculator = new DeliveryCostCalculator(3, 3);
+
+            //Assert
+            deliveryCostCalculator.CalculateFor(mockShoppingCart).Should().Be(0);
+        }
+
+        /// <summary>
+        /// Calculate delivery cost for null shopping cart
+        /// </summary>
+        [TestMethod]
+        public void CalculateDeliveryCost_WithValidNumberOfDeliveriesAndProducts_ReturnZero()
+        {
+            //Arrange
+            deliveryCostCalculator = new DeliveryCostCalculator(3, 3, 3);
+
+            //Act
+            mockShoppingCart.GetNumberOfDeliveries().Returns(2);
+            mockShoppingCart.GetNumberOfProducts().Returns(2);
+            
+            //Assert
+            deliveryCostCalculator.CalculateFor(mockShoppingCart).Should().Be(15);
+        }
+
+
+
+        #endregion
     }
 }
